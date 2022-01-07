@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-http-frontend-outbound
+  namespace: frontend
+spec:
+  podSelector:
+    matchLabels:
+      run: frontend
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              run: backend
+          namespaceSelector:
+            matchLabels:
+              ns: backend
+      ports:
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-backend
+  namespace: backend
+spec:
+  podSelector:
+    matchLabels:
+      run: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              run: frontend
+          namespaceSelector:
+            matchLabels:
+              ns: frontend
+      ports:
+        - protocol: TCP
+          port: 80

@@ -1,0 +1,1 @@
+https://github.com/jayendrapatil/kubernetes-exercises/blob/main/cks/3.system_hardening.md

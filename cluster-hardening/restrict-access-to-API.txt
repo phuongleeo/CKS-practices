@@ -1,0 +1,2 @@
+https://kubernetes.io/docs/concepts/security/controlling-access/
+https://kubernetes.io/docs/reference/access-authn-authz/authentication/#anonymous-requests

@@ -1,0 +1,54 @@
+##Generate a self-signed certificate
+# openssl genrsa -out podinfo.key 2048
+# openssl req -new -key podinfo.key  -out podinfo.csr
+# openssl x509 -req -days 365 -in podinfo.csr  -signkey podinfo.key  -out podinfo.crt
+
+# short command: openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+#kubectl create secret tls secure-ingress --cert=poinfo.crt --key=podinfi.key
+###Create resources
+#helm upgrade --install frontend  --namespace default --set replicaCount=1 --set backend=http://backend-podinfo:9898/echo --set ingress.enabled=true podinfo/podinfo
+#kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/httpbin/httpbin.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    meta.helm.sh/release-name: frontend
+    meta.helm.sh/release-namespace: default
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: frontend-podinfo
+    app.kubernetes.io/version: 6.0.3
+    helm.sh/chart: podinfo-6.0.3
+  name: frontend-podinfo
+  namespace: default
+spec:
+  defaultBackend:
+    service:
+      name: frontend-podinfo
+      port:
+        number: 9898
+  tls:
+    - hosts:
+        - podinfo.test
+      secretName: secure-ingress
+  ingressClassName: nginx
+  rules:
+    - host: podinfo.test
+      http:
+        paths:
+          - backend:
+              service:
+                name: frontend-podinfo
+                port:
+                  number: 9898
+            path: /podinfo(/|$)(.*)
+            pathType: Prefix
+          - backend:
+              service:
+                name: httpbin
+                port:
+                  number: 80
+            path: /httpbin(/|$)(.*)
+            pathType: Prefix
