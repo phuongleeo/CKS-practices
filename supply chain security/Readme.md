@@ -45,6 +45,11 @@ kubectl certificate approve image-bouncer-webhook.default
 # Get certificate ready to use
 kubectl get csr image-bouncer-webhook.default -o jsonpath='{.status.certificate}' | base64 --decode > server.crt
 
+```
+
+## ImagePolicyWebhook
+
+```shell
 # On your laptop
 docker run --rm -v "`pwd`/server.key:/certs/server.key:ro" -v "`pwd`/server.crt:/certs/server.crt:ro" -p 1323:1323 --network host kainlite/kube-image-bouncer:latest -k /certs/server.key -c /certs/server.crt
 
@@ -84,13 +89,61 @@ vi /etc/kubernetes/manifests/kube-apiserver.yaml
  --enable-admission-plugins=...,ImagePolicyWebhook
  --admission-control-config-file=/var/lib/minikube/admission-config.yaml
 
-
-# Add to kubeconfig
-kubectl config set-credentials myuser --client-key=myuser.key --client-certificate=myuser.crt --embed-certs=true
 ```
 
-# Test the webhook
+### Test the image policy webhook
 
 This controller will reject all the pods that are using images with `latest` tag.
 
-kubectl run nginx --image=nginx --port=80
+```shell
+❯ kubectl run nginx --image=nginx --port=80
+Images using latest tag are not allowed
+```
+
+## ValidatingAdmissionWebhook
+
+```shell
+# Create TLS secret
+kubectl create secret tls tls-image-bouncer-webhook --key server.key --cert server.crt
+
+# create ValidatingWebhookConfiguration
+cat <<EOF >> validating-webhook-configuration.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: image-bouncer-webook
+webhooks:
+  - name: image-bouncer-webhook.default.svc
+    rules:
+      - apiGroups:
+          - ''
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ['v1', 'v1beta1']
+    clientConfig:
+      caBundle: $(kubectl get csr image-bouncer-webhook.default -o jsonpath='{.status.certificate}')
+      service:
+        name: image-bouncer-webhook
+        namespace: default
+EOF
+
+# Create deployment
+kubectl apply -f image-bouncer-webhook.yaml
+kubectl apply -f validating-webhook-configuration.yaml
+```
+
+### Test the ValidatingAdmissionWebhook
+
+```shell
+❯ kubectl run nginx --image=nginx
+Error from server: admission webhook "image-bouncer-webhook.default.svc" denied the request: Images using latest tag are not allowed
+
+❯ kubectl run nginx --image=nginx:alpine
+pod/nginx created
+```

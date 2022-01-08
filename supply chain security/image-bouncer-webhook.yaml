@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: image-bouncer-webhook
+  name: image-bouncer-webhook
+spec:
+  ports:
+    - name: https
+      port: 443
+      targetPort: 1323
+      protocol: 'TCP'
+  selector:
+    app: image-bouncer-webhook
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-bouncer-webhook
+spec:
+  selector:
+    matchLabels:
+      app: image-bouncer-webhook
+  template:
+    metadata:
+      labels:
+        app: image-bouncer-webhook
+    spec:
+      containers:
+        - name: image-bouncer-webhook
+          image: 'kainlite/kube-image-bouncer:latest'
+          args:
+            - '--cert=/etc/admission-controller/tls/tls.crt'
+            - '--key=/etc/admission-controller/tls/tls.key'
+            - '--debug'
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/admission-controller/tls
+          resources:
+            limits:
+              memory: '256Mi'
+              cpu: '100m'
+      volumes:
+        - name: tls
+          secret:
+            secretName: tls-image-bouncer-webhook
