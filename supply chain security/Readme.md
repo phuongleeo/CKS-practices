@@ -107,7 +107,7 @@ Images using latest tag are not allowed
 kubectl create secret tls tls-image-bouncer-webhook --key server.key --cert server.crt
 
 # create ValidatingWebhookConfiguration
-cat <<EOF >> validating-webhook-configuration.yaml
+cat <<EOF | kubectl apply -f -
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -135,7 +135,6 @@ EOF
 
 # Create deployment
 kubectl apply -f image-bouncer-webhook.yaml
-kubectl apply -f validating-webhook-configuration.yaml
 ```
 
 ### Test the ValidatingAdmissionWebhook
