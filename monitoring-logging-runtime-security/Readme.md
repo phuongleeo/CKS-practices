@@ -59,3 +59,91 @@ sudo falco -r /etc/falco/falco_rules.local.yaml
 # perform arbitrary command
 kubectl exec -it po/nginx -- echo a
 ```
+
+# Pod security
+
+Delete pods in particular namespace that is either `not stateless` or `not immutable`
+
+- Pods being able to store data inside containers must be treated as `not stateless`
+
+```shell
+# search for pods that have volumes
+JSONPATH='{range .items[*]}{@.metadata.name}{"\t"}{range @.spec.volumes[*]} {@.name}{"\t"}{end}{"\n\n\n"}{end}'
+kubectl get pod -A -o jsonpath="$JSONPATH"
+```
+
+- Pods being configured to be privilegeds in any way must be treated as `not immutable`
+
+```shell
+# Search for pods that are privileged
+JSONPATH='{range .items[*]}{@.metadata.name}{"\t"}{@.spec.containers[*].securityContext.privileged}{"\n"}{end}'
+kubectl get pod -A -o jsonpath="$JSONPATH"|grep true
+```
+
+# Audit
+
+[docs](https://kubernetes.io/docs/tasks/debug-application-cluster/audit/)
+Enable log backend:
+
+- Loggs are stored at `/var/log/kubernetes/audit-logs.txt`
+- Logs files are retained for 10 days
+- at maximum, a number of `2` old audit log files are retained
+
+- A basic policy is provided at `/etc/kubernetes/logpolicy/sample-policy.yaml`. It only specifies what `not` to log. Edit and extend the policy to log:
+  - `namespaces` changes at RequestResponse level
+  - the request body of `persistentvolumes` changes in `front-apps` namespace
+  - ConfigMap and Secret changes in all namespaces at `Metadata` level
+
+Also, add a catch-all rule to log all other requests at `Metadata` level
+
+```yaml
+# Edit kube-api manifest
+    args:
+      ...
+      - --audit-log-path=/var/log/kubernetes/audit-logs.txt
+      - --audit-policy-file=/etc/kubernetes/logpolicy/sample-policy.yaml
+      - --audit-log-maxage=2
+      - --audit-log-maxbackup=10
+    volumeMounts:
+      - mountPath: /etc/kubernetes/logpolicy/audit-policy.yaml
+        name: audit-policy
+        readOnly: true
+      - mountPath: /var/log/kubernetes
+        name: audit-log
+  volume:
+    - name: audit-policy
+      hostPath:
+        path: /etc/kubernetes/logpolicy/sample-policy.yaml
+        type: File
+    - name: audit-log
+      hostPath:
+        path: /var/log/kubernetes
+        type: DirectoryOrCreate
+```
+
+```yaml
+# Sample policy
+apiVersion: audit.k8s.io/v1 # This is required.
+kind: Policy
+# Don't generate audit events for all requests in RequestReceived stage.
+omitStages:
+  - 'RequestReceived'
+rules:
+  # Log pod changes at RequestResponse level
+  - level: RequestResponse
+    resources:
+      - group: ''
+        resources: ['namespaces']
+  - level: Request
+    resources:
+      - group: ''
+        resources: ['persistentvolumes']
+    namespaces: ['front-apps']
+  - level: Metadata
+    resources:
+      - group: ''
+        resources: ['configmaps', 'secrets']
+  - level: Metadata
+    omitStages:
+      - 'RequestReceived'
+```
