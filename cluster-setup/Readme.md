@@ -51,3 +51,11 @@ kubectl apply -f https://raw.githubusercontent.com/istio/istio/master/samples/ht
 # Apply HTTPS
 kubectl apply -f 5-secure-ingress.yaml
 ```
+
+# Kube-bench
+
+View the benchmark results
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job.yaml
+```

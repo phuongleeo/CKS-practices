@@ -146,3 +146,19 @@ Error from server: admission webhook "image-bouncer-webhook.default.svc" denied 
 ❯ kubectl run nginx --image=nginx:alpine
 pod/nginx created
 ```
+
+# Trivy
+
+Look for images with `High` or `Critical` severity vulnerabilities, and delete the Pods that use those images.
+
+```shell
+# List all pods along with their images
+kubectl get pod -A -o custom-columns='POD:.metadata.name,IMAGE:.spec.containers[*].image'
+POD                                IMAGE
+nginx                              nginx:alpine
+
+# Scan the images
+images=($(k get pod -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{" "}{end}'))
+for i in "${images[@]}"; docker run -v ~/.cache/trivy:/root/.cache aquasec/trivy:0.22.0 i --light --severity=HIGH,CRITICAL --no-progress $i
+
+```
